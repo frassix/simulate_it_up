@@ -1,5 +1,3 @@
-
-
 #include "event_display.h"
 
 using namespace std;
@@ -67,7 +65,33 @@ void event_display(int event_number = 0, const char* filename = "events.root") {
   Double_t *hit_y = new Double_t[n_hits];
   Double_t *hit_z = new Double_t[n_hits];
   Double_t *hit_e = new Double_t[n_hits];
+  Double_t *hit_t = new Double_t[n_hits];
 
+
+  std::vector<HitData> hits_vector;
+  hits_vector.reserve(n_hits); 
+  
+  for (Int_t i = 0; i < n_hits; ++i) {
+    HitData current_hit;
+    current_hit.Index = event->Hits[i].Index;
+    current_hit.X = event->Hits[i].X;
+    current_hit.Y = event->Hits[i].Y;
+    current_hit.Z = event->Hits[i].Z;
+    current_hit.EnergyDeposit = event->Hits[i].EnergyDeposit;
+    current_hit.Time = event->Hits[i].Time;
+      
+    hits_vector.push_back(current_hit);
+  }
+
+  std::sort(hits_vector.begin(), hits_vector.end(), 
+	    [](const HitData& a, const HitData& b) {
+	      return a.Time < b.Time; 
+	    }
+	    );
+    
+    
+
+  
   TString full_output = "";
   TString filename_ts(filename);
   full_output += TString::Format("FILE: %s, EVENT: %d",
@@ -76,15 +100,20 @@ void event_display(int event_number = 0, const char* filename = "events.root") {
   full_output += "\n";
 
   for (int i = 0; i < n_hits; ++i) {
-    hit_type[i]= event->Hits[i].Index;
-    hit_x[i] = event->Hits[i].X;
-    hit_y[i] = event->Hits[i].Y;
-    hit_z[i] = event->Hits[i].Z;
-    hit_e[i] = event->Hits[i].EnergyDeposit;
-
+    hit_type[i]= hits_vector[i].Index;
+    hit_x[i] = hits_vector[i].X;
+    hit_y[i] = hits_vector[i].Y;
+    hit_z[i] = hits_vector[i].Z;
+    hit_e[i] = hits_vector[i].EnergyDeposit;
+    hit_t[i]=hits_vector[i].Time;
+    
+  
     string det="NONE";
     int layerhit=0;
+    float time=0;
     TString interaction_types_list = "";
+    TString interaction_time_list = "";
+    TString  interaction_particle_list = "";
 	
     if(hit_type[i]==1){
       det="TRA";
@@ -98,13 +127,9 @@ void event_display(int event_number = 0, const char* filename = "events.root") {
       } 
     }else if(hit_type[i]==2){
       det="CAL";
-
     }
 
-    // cout << "HIT: " << det
-    //	 << ";   LAYER: " << layerhit
-    //	 << ";   INTERACTION TYPE: ";
-
+   
      int n_int = event->Interactions.size();
      for (int j = 0; j < n_int; ++j) {
        for (const auto& particleID : event->Hits[i].PrimaryParticleIDs) {
@@ -112,20 +137,38 @@ void event_display(int event_number = 0, const char* filename = "events.root") {
 	   // cout <<  event->Interactions[j].Type << "  " ;
 	   interaction_types_list += event->Interactions[j].Type;
 	   interaction_types_list += "  ";
+	   Double_t time_in_ns = event->Interactions[j].Time*1.0e9;
+	   cout << time_in_ns << endl;
+	   std::string temp_str_1 = std::to_string(time_in_ns);
+	   interaction_time_list += temp_str_1;
+	   interaction_time_list += "  ";
+	   Int_t outgoing_particle = event->Interactions[j].OutgoingParticleCode;
+	   std::string temp_str_2 = std::to_string(outgoing_particle);
+	   if(outgoing_particle ==1) temp_str_2 = "PH";
+	   if(outgoing_particle ==2) temp_str_2 = "E+";
+	   if(outgoing_particle ==3) temp_str_2 = "E-";
+	 
+	   interaction_particle_list += temp_str_2;
+	   interaction_particle_list += "  ";
 	 }
        }
      }
      // cout << endl;
 
      interaction_types_list.Remove(TString::kTrailing, ' ');
+     interaction_time_list.Remove(TString::kTrailing, ' ');
+     interaction_particle_list.Remove(TString::kTrailing, ' ');
      TString hit_detector = det;
      Int_t hit_layer = layerhit;
+     Float_t interaction_time = time;
 
      TString current_line =
-       TString::Format( "HIT: %s;   LAYER: %d;   INTERACTION TYPE: %s",
+       TString::Format( "HIT: %s;   LAYER: %d;  INT TYPE: %s; TIME (ns): %s; OutP: %s",
 			hit_detector.Data(), 
-			hit_layer, 
-			interaction_types_list.Data()
+			hit_layer,
+			interaction_types_list.Data(),
+			interaction_time_list.Data(),
+			interaction_particle_list.Data()
 			);
      std::cout << current_line.Data() << std::endl;
      full_output += current_line;
