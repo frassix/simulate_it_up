@@ -187,6 +187,10 @@ void parse_and_fill_tree_core(std::istream& input,
   std::cout << "Parsing complete. Total events in tree: " << tree.GetEntries() << std::endl;
 }
 
+
+
+
+
 // -------------------------------------------------------------------
 // Legacy / standalone interface: .sim -> .root with TTree "Events"
 // This keeps your old workflow working, but the *core* logic above
@@ -224,4 +228,58 @@ void parse_and_fill_tree(const char* inputFile, const char* outputFile)
   file.cd();
   tree.Write();
   file.Close();
+}
+
+
+
+
+
+// -------------------------------------------------------------------
+// Nuova interfaccia: .sim.gz -> .root con TTree "Events"
+//   - Sgonfia inputGzFile in un temporaneo .sim
+//   - Chiama parse_and_fill_tree(.sim, outputRootFile)
+//   - (opzionale) cancella il .sim temporaneo
+// -------------------------------------------------------------------
+void parse_and_fill_tree_gz(const char* inputGzFile, const char* outputRootFile)
+{
+  std::string gz_name  = inputGzFile;
+  std::string sim_name;
+
+  // Deriva nome temporaneo .sim
+  size_t pos = gz_name.rfind(".gz");
+  if (pos != std::string::npos) {
+    // es: ".../file.sim.gz" -> ".../file.sim"
+    sim_name = gz_name.substr(0, pos);
+  } else {
+    // caso "strano": niente .gz, metto solo suffisso .sim
+    sim_name = gz_name + ".sim";
+    std::cout << "ATTENTION: '.gz' extension not found, using temp file name: "
+              << sim_name << std::endl;
+  }
+
+  // Comando di decompressione: gunzip -c inputGzFile > sim_name
+  TString cmd;
+  cmd.Form("gunzip -c \"%s\" > \"%s\"", gz_name.c_str(), sim_name.c_str());
+  std::cout << "Running command: " << cmd.Data() << std::endl;
+
+  int ret = gSystem->Exec(cmd);
+  if (ret != 0) {
+    std::cerr << "ERROR: gunzip command failed with code " << ret << std::endl;
+    return;
+  }
+
+  // Ora che abbiamo il .sim temporaneo, chiamiamo il parser standard
+  std::cout << "Parsing temporary .sim file: " << sim_name
+            << " -> " << outputRootFile << std::endl;
+
+  parse_and_fill_tree(sim_name.c_str(), outputRootFile);
+
+  // Cleanup: rimuovere il .sim temporaneo (se preferisci tenerlo, commenta queste righe)
+  int rm_ret = gSystem->Unlink(sim_name.c_str());
+  if (rm_ret != 0) {
+    std::cerr << "WARNING: could not delete temporary file: "
+              << sim_name << std::endl;
+  } else {
+    std::cout << "Temporary file removed: " << sim_name << std::endl;
+  }
 }

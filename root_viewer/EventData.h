@@ -1,8 +1,16 @@
 #ifndef EVENTDATA_H
 #define EVENTDATA_H
 
+#include "TSystem.h"
+#include "TFile.h"
+#include "TTree.h"
+
 #include <TObject.h>
 #include <TString.h>
+#include <iostream>
+#include <fstream>
+#include <sstream>
+#include <string>
 #include <vector>
 
 //--------------------------------------------------
