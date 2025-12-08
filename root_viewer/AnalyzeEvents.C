@@ -24,8 +24,7 @@ using namespace std;
 //   - Input:   BeamEnergy (keV) per definire i bin di energia
 //   - Output:  ROOT file con istogrammi, profili, canvas
 // ===================================================================
-void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename)
-{
+void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
   if (!tree) {
     std::cerr << "ERROR: AnalyzeEvents(TTree*,...) got a null tree!" << std::endl;
     return;
