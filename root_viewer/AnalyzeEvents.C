@@ -44,9 +44,18 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
   tree->SetBranchAddress("Event", &event);
 
   // --- Parametri di binning in energia ---
-  const int   e_bins = static_cast<Int_t>(BeamEnergy * 3.1);
   const float e_min  = 0.0;
-  const float e_max  = BeamEnergy * 1.1;
+  float e_lim;
+
+  if (BeamEnergy * 1.1 >= 1000.) {
+    e_lim = 1000.;
+  }
+  else{
+    e_lim  = BeamEnergy * 1.1;
+  }
+
+  const float e_max  = e_lim;
+  const int   e_bins = static_cast<Int_t>((e_max - e_min) * 3.1);
 
   // --- Istogrammi ---
   TH1F* hTotEdep_vs_Nev = new TH1F("hTotEdep_vs_Nev",
@@ -81,6 +90,10 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
     "Hits in the tracker;X-Position (cm);Y-Position (cm); Hits",
     100, -25, 25, 100, -25, 25);
 
+  TH1F* hEdepTrackerLayerMAX = new TH1F("hEdepTrackerLayerMAX",
+    "Energy Deposited per Hit (only max); Deposited Energy (keV); Hits",
+    e_bins, e_min, e_max);
+
   // istogrammi: tutti i colpi e con varie esclusioni di PhysicsModuleType
   TH1F* hEdepTrackerLayerALL = new TH1F("hEdepTrackerLayerALL",
     "Energy Deposited per Hit (all); Deposited Energy (keV); Hits",
@@ -110,6 +123,11 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
     "Layer Multiplicity;Layer Multiplicity; Events",
     50, 0.5, 50);
 
+  TH1F* hClusterSize = new TH1F(
+    "hClusterSize",
+    "Cluster size per event;Cluster size (N hits);Events",
+    101, -0.5, 99.5);
+
   // --- Loop sugli eventi ---
   for (Long64_t i = 0; i < nEntries; i++) {
     tree->GetEntry(i);
@@ -123,18 +141,37 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
     h2Etot->Fill(2, event->NSMaterialEnergy);
 
     int NlayersHit = 0;
+    int NumClu[10]={0};
+    double max_energy[10]={0};
 
     for (const auto& hit : event->Hits) {
       if (hit.Index == 1) {
-        for (const auto& particleID : hit.PrimaryParticleIDs) {
-          (void) particleID; // attualmente non usato
-
-          for (const auto& interaction : event->Interactions) {
-            (void) interaction; // attualmente non usato
+        //for (const auto& particleID : hit.PrimaryParticleIDs) {
+          //(void) particleID; // attualmente non usato
+          //for (const auto& interaction : event->Interactions) {
+            //(void) interaction; // attualmente non usato
 
             h2EdepTrackerVsZ->Fill(hit.Z, hit.EnergyDeposit);
             Ph2EdepTrackerVsZ->Fill(hit.Z, hit.EnergyDeposit);
             h2TrackerXvsY->Fill(hit.X, hit.Y);
+
+            int layerhit = -1;
+            float current_Z_limit = 11.5;
+            for (int layer = 0; layer < 10; ++layer) {
+                if (hit.Z > current_Z_limit) {
+                  layerhit = layer;
+                  break;
+                }
+                current_Z_limit -= 1.5;
+            }
+            if (layerhit >= 0 && layerhit < 10) {
+              if (hit.EnergyDeposit>0.) {
+                NumClu[layerhit]++;
+              }
+              if (hit.EnergyDeposit > max_energy[layerhit]) {
+                max_energy[layerhit] = hit.EnergyDeposit;
+              }
+            }
 
             // tutti i colpi
             hEdepTrackerLayerALL->Fill(hit.EnergyDeposit);
@@ -150,8 +187,8 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
               }
             }
 
-            int   layerhit         = 0;
-            float current_Z_limit  = 11.5;
+            layerhit = 0;
+            current_Z_limit  = 11.5;
             for (int layer = 1; layer <= 10; ++layer) {
               if (hit.Z > current_Z_limit) {
                 layerhit = layer;
@@ -163,10 +200,20 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
 
             hEdepTrackerLayerMultiplicity->Fill(NlayersHit, hit.EnergyDeposit);
             hLayers_vs_Nev->Fill(event->TriggerID, layerhit);
-          }
-        }
+          //}
+        //}
       }
     }
+
+    for (int layer = 0; layer < 10; ++layer) {
+      if (NumClu[layer] > 0) {
+        hClusterSize->Fill(NumClu[layer]);
+      }
+      if (max_energy[layer] > 0.0) {
+        hEdepTrackerLayerMAX->Fill(max_energy[layer]);
+      }
+    }
+
     hLayerMultiplicity->Fill(NlayersHit);
   }
 
@@ -238,6 +285,7 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
   h2EdepTrackerVsZ->Write();
   pEdepTrackerVsZ->Write();
   h2TrackerXvsY->Write();
+  hEdepTrackerLayerMAX->Write();
   hEdepTrackerLayerALL->Write();
   hEdepTrackerLayerNoCopper->Write();
   hEdepTrackerLayerNoCopperMJ55->Write();
@@ -245,6 +293,7 @@ void AnalyzeEvents(TTree* tree, double BeamEnergy, const char* output_filename){
   hEdepTrackerLayerMultiplicity->Write();
   hLayers_vs_Nev->Write();
   hLayerMultiplicity->Write();
+  hClusterSize->Write();
   cEdep->Write();   // salva anche la canvas
 
   outFile.Close();

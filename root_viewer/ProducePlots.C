@@ -7,6 +7,7 @@
 #include "TStyle.h" 
 #include "TGraph.h"
 #include "TLegend.h"
+#include "TLine.h"
 #include <iostream>
 
 void ProducePlots(const char* resultsFile = "results.root", double E=0) {
@@ -36,6 +37,7 @@ void ProducePlots(const char* resultsFile = "results.root", double E=0) {
     TProfile *pEdepVsZ = (TProfile*)f->Get("pEdepVsZ");
     TH2F *h2TrackerXvsY = (TH2F*)f->Get("h2TrackerXvsY");
     TH1F *hEdepTrackerLayerALL = (TH1F*)f->Get("hEdepTrackerLayerALL");
+    TH1F *hEdepTrackerLayerMAX = (TH1F*)f->Get("hEdepTrackerLayerMAX");
 
     if (!h2EdepTrackerVsZ || !pEdepVsZ || !h2TrackerXvsY || !hEdepTrackerLayerALL) {
         std::cerr << "ERROR: One or more required histograms/profiles could not be found." << std::endl;
@@ -43,6 +45,7 @@ void ProducePlots(const char* resultsFile = "results.root", double E=0) {
 	if (!pEdepVsZ) cout << "MISSING pEdepVsZ" << endl;
 	if (!h2TrackerXvsY) cout << "MISSING h2TrackerXvsY" << endl;
 	if (!hEdepTrackerLayerALL) cout << "MISSING hEdepTrackerLayerALL" << endl;	
+    if (!hEdepTrackerLayerMAX) cout << "MISSING hEdepTrackerLayerMAX" << endl;
 	f->Close();
         return;
     }
@@ -111,7 +114,14 @@ void ProducePlots(const char* resultsFile = "results.root", double E=0) {
 
     hEdepTrackerLayerALL->GetQuantiles(n_quantiles, quantiles, probabilities);
 
-    std::cout << "--- Calculated Quantiles ---" << std::endl;
+    std::cout << "--- Calculated Quantiles (over ALL hits) ---" << std::endl;
+    std::cout << "90th Percentile: " << quantiles[0] << std::endl;
+    std::cout << "95th Percentile: " << quantiles[1] << std::endl;
+    std::cout << "99th Percentile: " << quantiles[2] << std::endl;
+
+    hEdepTrackerLayerMAX->GetQuantiles(n_quantiles, quantiles, probabilities);
+
+    std::cout << "--- Calculated Quantiles (over MAX dep hits) ---" << std::endl;
     std::cout << "90th Percentile: " << quantiles[0] << std::endl;
     std::cout << "95th Percentile: " << quantiles[1] << std::endl;
     std::cout << "99th Percentile: " << quantiles[2] << std::endl;
